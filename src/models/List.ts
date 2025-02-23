@@ -1,7 +1,5 @@
 // src/backend/models/Promoter.ts
 import mongoose, { Schema, Document, Types } from "mongoose";
-import Promoter from "../models/Promoter";
-import User from "../models/User";
 
 export interface IList extends Document {
   title: string;

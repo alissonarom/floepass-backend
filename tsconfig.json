@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es5",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "es6", // Alterado para ES6 (Node.js suporta ES6 nativamente)
+    "lib": ["es6"], // Removido "dom" e "dom.iterable" (não são necessários para backend)
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -9,15 +9,15 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
-    "module": "esnext",
+    "module": "commonjs", // Alterado para CommonJS (recomendado para Node.js)
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react-jsx",
+    "noEmit": false, // Alterado para false (para permitir a compilação do TypeScript)
     "rootDir": "./src",
-    "outDir": "./dist",
+    "outDir": "./dist", // Certifique-se de que o diretório de saída está configurado
+    "sourceMap": true // Adicionado para facilitar a depuração
   },
-  "include": ["src", "src/index.tsx"],
-  "exclude": ["node_modules"]
+  "include": ["src/**/*"], // Inclui todos os arquivos na pasta src
+  "exclude": ["node_modules", "dist"] // Exclui node_modules e a pasta de saída
 }

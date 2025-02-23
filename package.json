@@ -1,7 +1,8 @@
 {
   "name": "flowpass-backend",
   "version": "1.0.0",
-  "main": "src/app.ts",
+  "main": "dist/app.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node dist/app.js",
     "build": "tsc",
