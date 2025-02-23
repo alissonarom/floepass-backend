@@ -1,0 +1,27 @@
+// src/backend/models/Promoter.ts
+import mongoose, { Schema, Document, Types } from "mongoose";
+import Promoter from "../models/Promoter";
+import User from "../models/User";
+
+export interface IList extends Document {
+  title: string;
+  promotor: Types.ObjectId;
+  startDate: Date;
+  endDate: Date;
+  users: Types.ObjectId[];
+}
+
+const ListSchema: Schema = new Schema({
+  title: { type: String, required: true },
+  promotor: {
+    type: Schema.Types.ObjectId,
+    ref: "Promoter",
+    required: true,
+    unique: true,
+  },
+  startDate: { type: Date, required: true },
+  endDate: { type: Date, required: true },
+  users: [{ type: Schema.Types.ObjectId, ref: "User", required: true }],
+});
+
+export default mongoose.model<IList>("List", ListSchema);
