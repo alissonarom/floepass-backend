@@ -1,5 +1,50 @@
+# Ignorar dependências do Node.js
 node_modules/
-.dist/
+
+# Ignorar arquivos de ambiente (variáveis sensíveis)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Ignorar logs e diretórios de cache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.cache/
+
+# Ignorar configurações do IDE/Editor
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Ignorar arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+
+# Ignorar arquivos de cobertura de testes
+coverage/
+.nyc_output/
+
+# Ignorar arquivos de lock alternativos (se usar npm)
+yarn.lock
+pnpm-lock.yaml
+
+# Ignorar pasta de build (se houver)
 dist/
 build/
-out/
+
+# Ignorar arquivos de banco de dados local (MongoDB)
+/data/
+*.db
+*.log
+
+# Ignorar arquivos gerados pelo usuário
+uploads/ # Se você tiver uma pasta para uploads de arquivos
+temp/    # Se você tiver uma pasta para arquivos temporários
