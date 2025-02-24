@@ -13,7 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 // Rotas
-app.use(router);
+app.use('api',router);
 
 // Conexão com o MongoDB
 const MONGO_URI = process.env.MONGO_URI ?? "mongodb://localhost:27017/flowapp";
