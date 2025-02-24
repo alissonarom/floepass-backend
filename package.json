@@ -6,18 +6,27 @@
   "scripts": {
     "start": "node dist/app.js",
     "build": "tsc",
-    "dev": "ts-node-dev src/app.ts"
+    "dev": "ts-node-dev src/app.ts",
+    "deploy": "vercel --prod",
+    "prestart": "yarn build",
+    "predeploy": "yarn build",
+    "bd": "yarn build && yarn deploy"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "mongoose": "^8.0.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.0.3"
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "mongoose": "^8.0.3"
   },
   "devDependencies": {
-    "typescript": "^4.9.5",
-    "ts-node-dev": "^2.0.0",
+    "@types/cors": "^2.8.13",
     "@types/express": "^4.17.21",
-    "@types/cors": "^2.8.13"
-  }
+    "@vercel/node": "^5.1.8",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^4.9.5",
+    "vercel": "^41.2.0"
+  },
+  "engines": {
+  "node": "20.18.3"
+}
 }

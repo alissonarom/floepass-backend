@@ -9,9 +9,11 @@ router.get('/', (req, res) => {
     res.send('Hello World');
 });
 
+
 // Rotas de Usuários
 router.get("/users", UserController.index); // Listar usuários
 router.post("/users", UserController.create); // Criar usuário
+router.get("/users/profile", UserController.getProfileByCpf); // Buscar perfil por CPF
 
 // Rotas de Promotores
 router.get("/promoters", PromoterController.index); // Listar promotores

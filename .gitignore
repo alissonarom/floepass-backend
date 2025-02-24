@@ -48,3 +48,4 @@ build/
 # Ignorar arquivos gerados pelo usuário
 uploads/ # Se você tiver uma pasta para uploads de arquivos
 temp/    # Se você tiver uma pasta para arquivos temporários
+.vercel
