@@ -24,13 +24,17 @@ const startServer = async () => {
     await mongoose.connect(MONGO_URI);
     console.log("✅ Conectado ao MongoDB");
 
-    app.listen(PORT, () => {
-      console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    });
+    // Não deve usar app.listen() no Vercel
+    // app.listen(PORT, () => {
+    //   console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    // });
   } catch (err) {
     console.error("❌ Erro ao conectar ao MongoDB:", err);
     process.exit(1); // Encerra a aplicação em caso de falha na conexão
   }
 };
 
+// Chama a função de conexão mas não executa o app.listen
 startServer();
+
+export default app; // Exporte o app para Vercel
