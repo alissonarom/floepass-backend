@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import routes from './routes';
+import router from './routes';
 
 dotenv.config();
 
@@ -13,7 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 // Rotas
-app.use(routes);
+app.use(router);
 
 // Conexão com o MongoDB
 const MONGO_URI = process.env.MONGO_URI ?? "mongodb://localhost:27017/flowapp";
