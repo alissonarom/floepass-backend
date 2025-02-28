@@ -1,4 +1,4 @@
-// src/backend/controllers/PromoterController.ts
+// src/backend/controllers/ListController.ts
 import { Request, Response } from "express";
 import List from "../models/List";
 
@@ -36,6 +36,28 @@ export default {
       return res.status(201).json(lista);
     } catch (error) {
       return res.status(500).json({ error: "Erro ao criar lista" });
+    }
+  },
+
+  // Editar uma lista existente
+  async update(req: Request, res: Response) {
+    const { id } = req.params;
+    const { title, promotor, startDate, endDate, users } = req.body;
+
+    try {
+      const lista = await List.findByIdAndUpdate(
+        id,
+        { title, promotor, startDate, endDate, users },
+        { new: true } // Retorna a lista atualizada
+      );
+
+      if (!lista) {
+        return res.status(404).json({ error: "Lista não encontrada" });
+      }
+
+      return res.json(lista);
+    } catch (error) {
+      return res.status(500).json({ error: "Erro ao atualizar lista" });
     }
   },
 };

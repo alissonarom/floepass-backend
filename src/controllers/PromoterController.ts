@@ -1,12 +1,12 @@
 // src/backend/controllers/PromoterController.ts
 import { Request, Response } from "express";
-import Promoter from "../models/Promoter";
+import User from "../models/User"; // Importe o modelo de usuário
 
 export default {
   // Listar todos os promotores
   async index(req: Request, res: Response) {
     try {
-      const promoters = await Promoter.find();
+      const promoters = await User.find({ profile: "Promotor" }); // Filtra por perfil "Promotor"
       return res.json(promoters);
     } catch (error) {
       return res.status(500).json({ error: "Erro ao buscar promotores" });
@@ -18,7 +18,14 @@ export default {
     const { name, cpf, birthDate, phone } = req.body;
 
     try {
-      const promoter = await Promoter.create({ name, cpf, birthDate, phone });
+      // Cria um usuário com o perfil de "Promotor"
+      const promoter = await User.create({
+        name,
+        cpf,
+        birthDate,
+        phone,
+        profile: "Promotor", // Define o perfil como "Promotor"
+      });
       return res.status(201).json(promoter);
     } catch (error) {
       return res.status(500).json({ error: "Erro ao criar promotor" });

@@ -1,44 +1,54 @@
-// src/backend/controllers/UserController.ts
 import { Request, Response } from "express";
-import User from "../models/User";
-import { formatUserProfile } from "../utils";
+import {
+  createOrUpdateUser,
+  getAllUsers,
+  getUserByCpf,
+  addPenaltyToUser,
+} from "../services/userService";
 
-export default {
-  async index(req: Request, res: Response) {
-    const users = await User.find();
-    return res.json(users);
-  },
+// Criar ou atualizar usuário
+export const createOrUpdateUserHandler = async (req: Request, res: Response) => {
+  try {
+    const userData = req.body;
+    const user = await createOrUpdateUser(userData);
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+};
 
-  async create(req: Request, res: Response) {
-    const { name, cpf, birthDate, phone, gender, profile } = req.body;
-    const user = await User.create({
-      name,
-      cpf,
-      birthDate,
-      phone,
-      gender,
-      profile,
-    });
-    return res.status(201).json(user);
-  },
+// Listar todos os usuários
+export const getAllUsersHandler = async (req: Request, res: Response) => {
+  try {
+    const users = await getAllUsers();
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+};
 
-  async getProfileByCpf(req: Request, res: Response) {
-    const { cpf } = req.query; // Captura o CPF da query string
-    const cleanedCpf = String(cpf).replace(/\D/g, '');
-
-    try {
-      const user = await User.findOne({ cpf: cleanedCpf }); // Busca o usuário pelo CPF
-      if (user) {
-        const formattedUser = formatUserProfile(user);
-        return res.status(200).json(formattedUser); // Retorna o perfil do usuário
-      } else {
-        return res.status(404).json({ error: "Usuário não encontrado" }); // Retorna erro se o usuário não for encontrado
-      }
-    } catch (error) {
-      console.error("Erro ao buscar perfil do usuário:", error);
-      return res.status(500).json({ error: "Erro ao buscar perfil do usuário" });
+// Buscar usuário por CPF
+export const getUserByCpfHandler = async (req: Request, res: Response) => {
+  try {
+    const { cpf } = req.params;
+    const user = await getUserByCpf(cpf);
+    if (!user) {
+      return res.status(404).json({ message: "Usuário não encontrado" });
     }
-  },
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
+};
 
-
+// Adicionar penalidade a um usuário
+export const addPenaltyToUserHandler = async (req: Request, res: Response) => {
+  try {
+    const { cpf } = req.params;
+    const penaltyData = req.body;
+    const user = await addPenaltyToUser(cpf, penaltyData);
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(400).json({ message: (error as Error).message });
+  }
 };

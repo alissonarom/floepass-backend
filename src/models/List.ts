@@ -13,13 +13,13 @@ const ListSchema: Schema = new Schema({
   title: { type: String, required: true },
   promotor: {
     type: Schema.Types.ObjectId,
-    ref: "Promoter",
+    ref: "Promotor",
     required: true,
     unique: true,
   },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
-  users: [{ type: Schema.Types.ObjectId, ref: "User", required: true }],
+  users: [{ type: Schema.Types.ObjectId, ref: "User" }],
 });
 
 export default mongoose.model<IList>("List", ListSchema);

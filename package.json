@@ -10,7 +10,7 @@
     "deploy": "vercel --prod",
     "prestart": "yarn build",
     "predeploy": "yarn build",
-    "bd": "yarn build && yarn deploy"
+    "bdb": "yarn build && yarn deploy"
   },
   "dependencies": {
     "cors": "^2.8.5",
