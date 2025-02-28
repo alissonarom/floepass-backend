@@ -13,9 +13,8 @@ const ListSchema: Schema = new Schema({
   title: { type: String, required: true },
   promotor: {
     type: Schema.Types.ObjectId,
-    ref: "Promotor",
+    ref: "User",
     required: true,
-    unique: true,
   },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },

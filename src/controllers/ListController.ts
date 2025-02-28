@@ -19,7 +19,7 @@ export default {
   async create(req: Request, res: Response) {
     const { title, promotor, startDate, endDate, users } = req.body;
 
-    if (!title || !promotor || !startDate || !endDate || !users) {
+    if (!title || !promotor || !startDate || !endDate) {
       return res
         .status(400)
         .json({ error: "Todos os campos são obrigatórios." });
@@ -35,7 +35,7 @@ export default {
       });
       return res.status(201).json(lista);
     } catch (error) {
-      return res.status(500).json({ error: "Erro ao criar lista" });
+      return res.status(500).json({ error: "Erro ao criar lista", log: error });
     }
   },
 

@@ -1,8 +1,9 @@
 {
   "name": "flowpass-backend",
-  "version": "1.0.0",
+  "version": "1.4.1",
   "main": "dist/app.js",
   "type": "commonjs",
+  "license": "MIT",
   "scripts": {
     "start": "node dist/app.js",
     "build": "tsc",
