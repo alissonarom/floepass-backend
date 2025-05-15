@@ -1,11 +1,6 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Types } from "mongoose";
+import History from "./History";
 
-// Interface para o histórico de listas
-interface IListHistory {
-  listId: mongoose.Types.ObjectId;
-  joinedAt: Date;
-  leftAt?: Date;
-}
 
 // Interface para as penalidades
 interface IPenalty {
@@ -21,12 +16,15 @@ export interface IUser extends Document {
   birthDate: Date;
   phone: string;
   gender: string;
-  profile: "Usuário" | "Promotor" | "Funcionário";
+  profile: string;
   anniversary: boolean;
-  history: IListHistory[];
+  histories: Types.ObjectId[];
   penalties: IPenalty[];
-  currentLists: mongoose.Types.ObjectId[];
-  cash: { type: mongoose.Types.Decimal128, default: 0 },
+  currentLists: mongoose.Types.ObjectId;
+  cash: number;
+  client_id: string;
+  password?: string;
+  registrationDay: Date;
 }
 
 // Schema do usuário
@@ -34,7 +32,7 @@ const UserSchema: Schema = new Schema({
   name: { type: String, required: true },
   cpf: { type: String, required: true, unique: true },
   birthDate: { type: Date, required: true },
-  phone: { type: String, required: true },
+  phone: { type: String },
   gender: {
     type: String,
     enum: ["Masculino", "Feminino"],
@@ -42,15 +40,13 @@ const UserSchema: Schema = new Schema({
   },
   profile: {
     type: String,
-    enum: ["Usuário", "Promotor", "Funcionário"],
     required: true,
   },
   anniversary: { type: Boolean, default: false },
-  history: [
+  histories: [
     {
-      listId: { type: Schema.Types.ObjectId, ref: "List", required: true },
-      joinedAt: { type: Date, default: Date.now },
-      leftAt: { type: Date },
+      type: Schema.Types.ObjectId,
+      ref: "History",
     },
   ],
   penalties: [
@@ -64,9 +60,17 @@ const UserSchema: Schema = new Schema({
       startDate: { type: Date, default: Date.now },
     },
   ],
-  currentLists: [{ type: Schema.Types.ObjectId, ref: "List" }],
-  cash: { type: mongoose.Types.Decimal128 },
+  currentLists: { type: Schema.Types.ObjectId, ref: "List" },
+  cash: { type: Number, default: 0 },
+  client_id: { type: String, required: true },
+  password: { type: String },
+  registrationDay: { type: Date, default: Date.now },
 });
+
+UserSchema.index({ name: 1 }); // Índice para ordenação/filtro por nome
+UserSchema.index({ profile: 1 }); // Índice para filtro por perfil
+UserSchema.index({ client_id: 1 }); // Índice para consultas por client_id
+UserSchema.index({ 'penalties.startDate': 1 }); // Índice para penalidades
 
 // Exportar o modelo
 export default mongoose.model<IUser>("User", UserSchema);

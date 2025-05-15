@@ -14,7 +14,7 @@ const PromoterSchema: Schema = new Schema({
   cpf: { type: String, required: true, unique: true },
   birthDate: { type: Date, required: true },
   phone: { type: String, required: true },
-  cash: { type: mongoose.Types.Decimal128, default: 0 },
+  cash: { type: Number, default: 0 },
 });
 
 export default mongoose.model<IPromoter>("Promoter", PromoterSchema);

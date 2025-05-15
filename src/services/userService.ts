@@ -2,15 +2,15 @@ import User, { IUser } from "../models/User";
 
 // Criar ou atualizar usuário
 export const createOrUpdateUser = async (userData: Partial<IUser>) => {
-  const { cpf } = userData;
+  const { cpf, client_id } = userData;
 
   // Verifica se o usuário já existe
-  const existingUser = await User.findOne({ cpf });
+  const existingUser = await User.findOne({ cpf, client_id });
 
   if (existingUser) {
     // Atualiza o usuário existente
     const updatedUser = await User.findOneAndUpdate(
-      { cpf },
+      { cpf, client_id },
       { $set: userData },
       { new: true }
     );
@@ -28,9 +28,9 @@ export const getAllUsers = async () => {
   return await User.find({});
 };
 
-// Buscar usuário por CPF
-export const getUserByCpf = async (cpf: string) => {
-  return await User.findOne({ cpf });
+// Buscar usuário por ID
+export const getUserById = async (_id: string, clientId: string) => {
+  return await User.findOne({ _id, client_id: clientId }); // Filtra por ID e client_id
 };
 
 // Adicionar penalidade a um usuário

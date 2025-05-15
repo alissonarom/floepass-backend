@@ -3,22 +3,37 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 
 export interface IList extends Document {
   title: string;
-  promotor: Types.ObjectId;
+  owner: Types.ObjectId;
   startDate: Date;
   endDate: Date;
-  users: Types.ObjectId[];
+  isExam?: boolean;
+  domain?: string;
+  eventId?: Types.ObjectId;
+  historico?: Types.ObjectId;
 }
 
 const ListSchema: Schema = new Schema({
   title: { type: String, required: true },
-  promotor: {
+  owner: {
     type: Schema.Types.ObjectId,
     ref: "User",
     required: true,
   },
+  historico: {
+    type: Schema.Types.ObjectId,
+    ref: "History",
+    default: null
+  },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
-  users: [{ type: Schema.Types.ObjectId, ref: "User" }],
+  domain: { type: String },
+  isExam: { type: Boolean, default: false },
+  eventId: {
+    type: Schema.Types.ObjectId,
+    ref: "Event",
+  },
 });
+
+ListSchema.index({ createdAt: -1 });
 
 export default mongoose.model<IList>("List", ListSchema);

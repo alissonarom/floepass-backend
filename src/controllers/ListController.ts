@@ -6,33 +6,126 @@ export default {
   // Listar todas as listas
   async index(req: Request, res: Response) {
     try {
-      const lists = await List.find()
-        .populate("promotor") // Popula informações do promotor
-        .populate("users"); // Popula informações dos usuários
+      const lists = await List.aggregate([
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "owner",
+            foreignField: "_id",
+            as: "owner"
+          }
+        },
+        { $unwind: "$owner" },
+        {
+          $lookup: {
+            from: "events",  // Novo lookup para o eventId
+            localField: "eventId",
+            foreignField: "_id",
+            as: "event"
+          }
+        },
+        {
+          $lookup: {
+            from: "histories",
+            localField: "historico",
+            foreignField: "_id",
+            as: "historico"
+          }
+        },
+        { $unwind: { path: "$historico", preserveNullAndEmptyArrays: true } },
+        { $unwind: { path: "$event", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "historico.users.id",
+            foreignField: "_id",
+            as: "historico.usersWithData"
+          }
+        },
+        {
+          $addFields: {
+            "historico.users": {
+              $map: {
+                input: "$historico.users",
+                as: "user",
+                in: {
+                  $mergeObjects: [
+                    "$$user",
+                    {
+                      id: {
+                        $arrayElemAt: [
+                          {
+                            $filter: {
+                              input: "$historico.usersWithData",
+                              as: "userData",
+                              cond: { $eq: ["$$userData._id", "$$user.id"] }
+                            }
+                          },
+                          0
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          $project: {
+            title: 1,
+            owner: 1,
+            startDate: 1,
+            endDate: 1,
+            isExam: 1,
+            domain: 1,
+            eventId: 1,
+            event: { $ifNull: ["$event", null] }, // Mantém o event mesmo se for null
+            historico: { $ifNull: ["$historico", null] }, // Mantém o historico mesmo se for null
+            createdAt: 1,
+            updatedAt: 1
+          }
+        }
+      ]);
+
       return res.json(lists);
     } catch (error) {
       return res.status(500).json({ error: "Erro ao buscar listas" });
     }
   },
+//   async index(req: Request, res: Response) {
+//     try {
+//       const lists = await List.find()
+//         .sort({ createdAt: -1 })
+//         .populate("owner", "name profile cpf _id")
+//         .populate("event", "title startDate domain")
+//         .populate({
+//           path: "historico",
+//           populate: {
+//             path: "users.id",
+//             select: "name profile cpf _id"
+//           }
+//         });
+
+//       return res.json(lists);
+//     } catch (error) {
+//       console.error(error);
+//       return res.status(500).json({ error: "Erro ao buscar listas" });
+//     }
+// },
 
   // Criar uma nova lista
   async create(req: Request, res: Response) {
-    const { title, promotor, startDate, endDate, users } = req.body;
 
-    if (!title || !promotor || !startDate || !endDate) {
-      return res
-        .status(400)
-        .json({ error: "Todos os campos são obrigatórios." });
+    const listData = req.body;
+
+    if (listData.historico === "") {
+      listData.historico = null;
     }
 
     try {
-      const lista = await List.create({
-        title,
-        promotor,
-        startDate,
-        endDate,
-        users,
-      });
+      const lista = await List.create(listData);
       return res.status(201).json(lista);
     } catch (error) {
       return res.status(500).json({ error: "Erro ao criar lista", log: error });
@@ -42,12 +135,12 @@ export default {
   // Editar uma lista existente
   async update(req: Request, res: Response) {
     const { id } = req.params;
-    const { title, promotor, startDate, endDate, users } = req.body;
+    const { title, startDate, endDate } = req.body;
 
     try {
       const lista = await List.findByIdAndUpdate(
         id,
-        { title, promotor, startDate, endDate, users },
+        { title, startDate, endDate },
         { new: true } // Retorna a lista atualizada
       );
 
