@@ -1,25 +1,52 @@
+import mongoose from "mongoose";
 import User, { IUser } from "../models/User";
+import { Db } from "mongodb";
 
 // Criar ou atualizar usuário
-export const createOrUpdateUser = async (userData: Partial<IUser>) => {
-  const { cpf, client_id } = userData;
+export const createOrUpdateUser = async (
+  userData: Partial<IUser> & { _id?: string | mongoose.Types.ObjectId },
+  db: Db
+): Promise<IUser> => {
+  const { cpf, client_id, _id } = userData;
 
-  // Verifica se o usuário já existe
-  const existingUser = await User.findOne({ cpf, client_id });
+  // Normaliza o _id para ObjectId se existir
+  const userId = _id ? new mongoose.Types.ObjectId(_id) : null;
 
-  if (existingUser) {
-    // Atualiza o usuário existente
-    const updatedUser = await User.findOneAndUpdate(
-      { cpf, client_id },
-      { $set: userData },
-      { new: true }
+  // Filtros de busca
+  const filterById = userId ? { _id: userId } : null;
+  const filterByCpf = { cpf, client_id };
+
+  // Opções de atualização
+  const updateOptions = {
+    new: true,
+    upsert: true,
+    setDefaultsOnInsert: true
+  };
+
+  // Dados para atualização
+  const updateData = {
+    $set: userData,
+    $setOnInsert: {
+      createdAt: new Date()
+    }
+  };
+
+  try {
+    // Tenta encontrar e atualizar o usuário
+    const result = await db.collection('users').findOneAndUpdate(
+      filterById || filterByCpf,
+      updateData,
+      updateOptions
     );
-    return updatedUser;
-  } else {
-    // Cria um novo usuário
-    const newUser = new User(userData);
-    await newUser.save();
-    return newUser;
+
+    if (!result || !result.value) {
+      throw new Error('Falha ao criar/atualizar usuário');
+    }
+
+    return result.value as IUser;
+  } catch (error) {
+    console.error('Erro na operação de usuário:', error);
+    throw error;
   }
 };
 

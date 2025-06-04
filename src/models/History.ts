@@ -23,7 +23,7 @@ export interface IHistory extends Document {
 }
 
 const HistorySchema: Schema = new Schema({
-    listId: {type: String, required: true},
+    listId: {type: String},
     joinedAt: { type: Date},
     listDate: { type: Date},
     leftAt: { type: Date },

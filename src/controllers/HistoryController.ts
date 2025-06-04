@@ -71,7 +71,7 @@ export default {
       };
   
       // Validação adicional antes de criar
-      if (!historyData.listId || !historyData.name || !historyData.eventName) {
+      if ( !historyData.name || !historyData.eventName) {
         return res.status(400).json({ error: "Campos obrigatórios faltando" });
       }
   
@@ -99,7 +99,7 @@ export default {
   async updateOrAddUser(req: Request, res: Response) {
     const { historyId, userId } = req.params;
     const { firstRound, secondRound, examScore } = req.body;
-
+    console.log("historyId", historyId);
     try {
       const history = await History.findById(historyId);
         if (!history) {

@@ -135,22 +135,23 @@ export default {
   // Editar uma lista existente
   async update(req: Request, res: Response) {
     const { id } = req.params;
-    const { title, startDate, endDate } = req.body;
+    const updateData = req.body;
 
     try {
-      const lista = await List.findByIdAndUpdate(
+      const updatedList = await List.findByIdAndUpdate(
         id,
-        { title, startDate, endDate },
-        { new: true } // Retorna a lista atualizada
+        { $set: updateData }, // Usa $set para atualizar apenas os campos fornecidos
+      { new: true } // Retorna o documento atualizado
       );
 
-      if (!lista) {
-        return res.status(404).json({ error: "Lista não encontrada" });
-      }
+      if (!updatedList) {
+      return res.status(404).json({ error: "Lista não encontrada" });
+    }
 
-      return res.json(lista);
+      return res.json(updatedList);
     } catch (error) {
-      return res.status(500).json({ error: "Erro ao atualizar lista" });
+      console.error("Erro ao atualizar lista:", error);
+      return res.status(500).json({ error: "Erro interno do servidor" });
     }
   },
 };

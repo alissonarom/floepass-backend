@@ -54,7 +54,7 @@ router.get("/histories/:id", HistoryController.show); // Buscar histórico por I
 router.put("/histories/:id", HistoryController.updateOrAddUser); // Editar histórico
 router.delete("/histories/:id", HistoryController.delete); // Deletar histórico
 router.get("/histories/:id", HistoryController.addUser); // Adicionar usuário ao histórico
-router.put("/histories/:historyId/users/:userId", HistoryController.updateUserInHistory);
+router.put("/histories/:historyId/users/:userId", HistoryController.updateOrAddUser);
 
 // Rotas CRUD básicas
 router.get("/lots", LotController.index); // Listar todos os lotes

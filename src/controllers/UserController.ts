@@ -20,6 +20,10 @@ const QRCodeModel = mongoose.model('QRCode', QRCodeSchema);
 // Criar ou atualizar usuário
 export const createOrUpdateUserHandler = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Usuário não autenticado" });
+    }
+    const db = req.user.db;
     const userData = req.body;
 
     // Verifica se o client_id foi fornecido
@@ -35,7 +39,7 @@ export const createOrUpdateUserHandler = async (req: Request, res: Response) => 
       }
     }
 
-    const user = await createOrUpdateUser(userData);
+    const user = await createOrUpdateUser(userData, db);
 
     if (!user) {
       return res.status(404).json({ message: "Usuário não encontrado ou não pôde ser criado" });
