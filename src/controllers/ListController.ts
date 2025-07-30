@@ -1,13 +1,21 @@
-// src/backend/controllers/ListController.ts
 import { Request, Response } from "express";
-import List from "../models/List";
+import { getModelForTenant } from "../utils/multiTenancy"; // Você precisará criar este utilitário
+import { CUSTOMER_DBS } from "../app";
 
 export default {
-  // Listar todas as listas
   async index(req: Request, res: Response) {
+    console.log(`Buscando listas para o tenant: ${req.auth?.clientId}`);
+    const clientId = req.auth?.clientId;
+    console.log(`Banco de dados sendo usado: ${clientId ? CUSTOMER_DBS[clientId] : "clientId indefinido"}`);
     try {
+      if (!req.auth) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+
+      const List = getModelForTenant(req.auth.clientId, 'List');
+
       const lists = await List.aggregate([
-        { $sort: { createdAt: -1 } },
+          { $sort: { createdAt: -1 } },
         {
           $lookup: {
             from: "users",
@@ -91,40 +99,24 @@ export default {
 
       return res.json(lists);
     } catch (error) {
+      console.error(error);
       return res.status(500).json({ error: "Erro ao buscar listas" });
     }
   },
-//   async index(req: Request, res: Response) {
-//     try {
-//       const lists = await List.find()
-//         .sort({ createdAt: -1 })
-//         .populate("owner", "name profile cpf _id")
-//         .populate("event", "title startDate domain")
-//         .populate({
-//           path: "historico",
-//           populate: {
-//             path: "users.id",
-//             select: "name profile cpf _id"
-//           }
-//         });
 
-//       return res.json(lists);
-//     } catch (error) {
-//       console.error(error);
-//       return res.status(500).json({ error: "Erro ao buscar listas" });
-//     }
-// },
-
-  // Criar uma nova lista
   async create(req: Request, res: Response) {
-
-    const listData = req.body;
-
-    if (listData.historico === "") {
-      listData.historico = null;
-    }
-
     try {
+      if (!req.auth) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+
+      const List = getModelForTenant(req.auth.clientId, 'List');
+      const listData = req.body;
+      
+      if (listData.historico === "") {
+        listData.historico = null;
+      }
+
       const lista = await List.create(listData);
       return res.status(201).json(lista);
     } catch (error) {
@@ -132,26 +124,30 @@ export default {
     }
   },
 
-  // Editar uma lista existente
   async update(req: Request, res: Response) {
-    const { id } = req.params;
-    const updateData = req.body;
-
     try {
+      if (!req.auth) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+
+      const List = getModelForTenant(req.auth.clientId, 'List');
+      const { id } = req.params;
+      const updateData = req.body;
+
       const updatedList = await List.findByIdAndUpdate(
         id,
-        { $set: updateData }, // Usa $set para atualizar apenas os campos fornecidos
-      { new: true } // Retorna o documento atualizado
+        { $set: updateData },
+        { new: true }
       );
 
       if (!updatedList) {
-      return res.status(404).json({ error: "Lista não encontrada" });
-    }
+        return res.status(404).json({ error: "Lista não encontrada" });
+      }
 
       return res.json(updatedList);
     } catch (error) {
       console.error("Erro ao atualizar lista:", error);
       return res.status(500).json({ error: "Erro interno do servidor" });
     }
-  },
+  }
 };

@@ -8,7 +8,6 @@ export interface IEvent extends Document {
   endDate: Date;
   lists: Types.ObjectId[];
   domain?: string;
-  lots?: Types.ObjectId[]; // Referência aos lotes
   basePrice: number;
   femaleBasePrice: number;
   maleBasePrice: number;
@@ -25,10 +24,6 @@ const EventSchema: Schema = new Schema({
   endDate: { type: Date, required: true },
   lists: [{ type: Schema.Types.ObjectId, ref: "List" }],
   domain: { type: String },
-  lots: [{ 
-    type: Schema.Types.ObjectId, 
-    ref: "Lot" 
-  }],
   basePrice: { type: Number, default: 0 },
   femaleBasePrice: { type: Number, default: 0 },
   maleBasePrice: { type: Number, default: 0 },

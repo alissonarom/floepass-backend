@@ -21,7 +21,7 @@ const PORT = process.env.PORT ?? 5000;
 
 // Configuração dos bancos de clientes
 export const CUSTOMER_DBS: { [key: string]: string } = {
-  greyMist: 'greyMistDb',
+  greyMist: 'greyMistDB',
   amorChurch: 'test'
 };
 

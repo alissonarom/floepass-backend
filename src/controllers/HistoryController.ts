@@ -1,34 +1,57 @@
 // src/backend/controllers/HistoryController.ts
 import { Request, Response } from "express";
-import History from "../models/History";
 import mongoose from "mongoose";
+import { getModelForTenant } from "../utils/multiTenancy"; // Ajuste o caminho conforme necessário
 
 export default {
   // Listar todos os históricos
   async index(req: Request, res: Response) {
     try {
+      if (!req.auth) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+
+      const History = getModelForTenant(req.auth.clientId, 'History');
+      const User = getModelForTenant(req.auth.clientId, 'User');
+
       const histories = await History.find()
         .populate({
           path: "users.id",
-          model: 'User'
+          model: User
         })
-        .lean(); // Popula o aprovador do ticket
+        .lean();
       
       return res.json(histories);
     } catch (error) {
-      return res.status(500).json({ error: "Erro ao buscar históricos" });
+      console.error("Erro ao buscar históricos:", error);
+      return res.status(500).json({ 
+        error: "Erro ao buscar históricos",
+        details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
+      });
     }
   },
 
   // Buscar um histórico específico por ID
   async show(req: Request, res: Response) {
     try {
+      if (!req.auth) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+
+      const History = getModelForTenant(req.auth.clientId, 'History');
+      const User = getModelForTenant(req.auth.clientId, 'User');
+
       const history = await History.findById(req.params.id)
         .populate({
           path: "users.id",
-          select: "_id name profile"
+          select: "_id name profile",
+          model: User
         })
-        .populate("ticket.approver", "name");
+        .populate({
+          path: "ticket.approver",
+          select: "name",
+          model: User
+        });
       
       if (!history) {
         return res.status(404).json({ error: "Histórico não encontrado" });
@@ -36,13 +59,24 @@ export default {
       
       return res.json(history);
     } catch (error) {
-      return res.status(500).json({ error: "Erro ao buscar histórico" });
+      console.error("Erro ao buscar histórico:", error);
+      return res.status(500).json({ 
+        error: "Erro ao buscar histórico",
+        details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
+      });
     }
   },
 
   // Criar um novo histórico
   async create(req: Request, res: Response) {
     try {
+      if (!req.auth) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+
+      const History = getModelForTenant(req.auth.clientId, 'History');
+      const User = getModelForTenant(req.auth.clientId, 'User');
+
       // Verifica e normaliza os users
       const users = Array.isArray(req.body.users) 
         ? req.body.users.map((user: any) => ({
@@ -60,18 +94,16 @@ export default {
                 : null
             } : undefined
           }))
-          .filter((user: any ) => user.id !== null) // Filtra users com IDs inválidos
-        : []; // Caso users não seja array, usa array vazio
+          .filter((user: any) => user.id !== null)
+        : [];
   
-      // Cria o objeto de dados
       const historyData = {
         ...req.body,
         users,
-        joinedAt: req.body.joinedAt || new Date() // Valor padrão
+        joinedAt: req.body.joinedAt || new Date()
       };
   
-      // Validação adicional antes de criar
-      if ( !historyData.name || !historyData.eventName) {
+      if (!historyData.name || !historyData.eventName) {
         return res.status(400).json({ error: "Campos obrigatórios faltando" });
       }
   
@@ -81,7 +113,7 @@ export default {
     } catch (error) {
       console.error("Erro ao criar histórico:", error);
       
-      if (error instanceof Error && error.name === 'ValidationError') {
+      if (error instanceof mongoose.Error.ValidationError) {
         return res.status(400).json({ 
           error: "Erro de validação",
           details: error.message 
@@ -97,55 +129,60 @@ export default {
 
   // Atualizar um histórico existente
   async updateOrAddUser(req: Request, res: Response) {
-    const { historyId, userId } = req.params;
-    const { firstRound, secondRound, examScore } = req.body;
-    console.log("historyId", historyId);
     try {
-      const history = await History.findById(historyId);
-        if (!history) {
-            return res.status(404).json({ error: "Histórico não encontrado" });
-        }
+      if (!req.auth) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
 
-        // Verifica se o usuário já existe no array
-        const userIndex = history.users.findIndex(user => 
-            user.id.toString() === userId
-        );
+      const History = getModelForTenant(req.auth.clientId, 'History');
+      const { historyId, userId } = req.params;
+      const { firstRound, secondRound, examScore } = req.body;
+
+      const history = await History.findById(historyId);
+      if (!history) {
+        return res.status(404).json({ error: "Histórico não encontrado" });
+      }
+
+      const userIndex = history.users.findIndex((user: { id: { toString: () => string; }; }) => 
+        user.id.toString() === userId
+      );
 
       if (userIndex !== -1) {
-            // Atualiza o usuário existente
-            if (firstRound !== undefined) {
-                history.users[userIndex].firstRound = firstRound;
-            }
-            if (secondRound !== undefined) {
-                history.users[userIndex].secondRound = secondRound;
-            }
-            if (examScore !== undefined) {
-                history.examScore = examScore;
-            }
-          } else {
-            // Adiciona um novo usuário
-            history.users.push({
-                id: new mongoose.Types.ObjectId(userId),
-                firstRound: firstRound || false,
-                secondRound: secondRound || false,
-                ticket: {
-                    paying: false,
-                    reason: "",
-                    approver: null
-                }
-            });
-        }
-          const updatedHistory = await history.save();
-        return res.json(updatedHistory);
+        if (firstRound !== undefined) history.users[userIndex].firstRound = firstRound;
+        if (secondRound !== undefined) history.users[userIndex].secondRound = secondRound;
+        if (examScore !== undefined) history.users[userIndex].examScore = examScore;
+      } else {
+        history.users.push({
+          id: new mongoose.Types.ObjectId(userId),
+          firstRound: firstRound || false,
+          secondRound: secondRound || false,
+          ticket: {
+            paying: false,
+            reason: "",
+            approver: null
+          }
+        });
+      }
+
+      const updatedHistory = await history.save();
+      return res.json(updatedHistory);
     } catch (error) {
-        console.error("Erro ao atualizar/adicionar usuário:", error);
-        return res.status(500).json({ error: "Erro ao processar a requisição" });
+      console.error("Erro ao atualizar/adicionar usuário:", error);
+      return res.status(500).json({ 
+        error: "Erro ao processar a requisição",
+        details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
+      });
     }
-},
+  },
 
   // Deletar um histórico
   async delete(req: Request, res: Response) {
     try {
+      if (!req.auth) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+
+      const History = getModelForTenant(req.auth.clientId, 'History');
       const history = await History.findByIdAndDelete(req.params.id);
 
       if (!history) {
@@ -154,34 +191,48 @@ export default {
 
       return res.status(204).json();
     } catch (error) {
-      return res.status(500).json({ error: "Erro ao deletar histórico" });
+      console.error("Erro ao deletar histórico:", error);
+      return res.status(500).json({ 
+        error: "Erro ao deletar histórico",
+        details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
+      });
     }
   },
 
-  // Método adicional para adicionar um usuário ao histórico
+  // Adicionar um usuário ao histórico
   async addUser(req: Request, res: Response) {
-    const { Id } = req.params;
-    const { userId, firstRound, secondRound, free, reason, approver } = req.body;
-
     try {
+      if (!req.auth) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+
+      const History = getModelForTenant(req.auth.clientId, 'History');
+      const User = getModelForTenant(req.auth.clientId, 'User');
+      const { Id } = req.params;
+      const { userId, firstRound, secondRound, free, reason, approver } = req.body;
+
       const history = await History.findByIdAndUpdate(
         Id,
         {
           $push: {
             users: {
-              id: userId,
+              id: new mongoose.Types.ObjectId(userId),
               firstRound: firstRound || false,
               secondRound: secondRound || false,
               ticket: {
-                free: free,
-                reason: reason,
-                approver: approver
+                free: Boolean(free),
+                reason: reason || '',
+                approver: approver ? new mongoose.Types.ObjectId(approver) : null
               }
             }
           }
         },
         { new: true }
-      ).populate("users.id", "name profile");
+      ).populate({
+        path: "users.id",
+        select: "name profile",
+        model: User
+      });
 
       if (!history) {
         return res.status(404).json({ error: "Histórico não encontrado" });
@@ -189,37 +240,56 @@ export default {
 
       return res.json(history);
     } catch (error) {
-      return res.status(500).json({ error: "Erro ao adicionar usuário ao histórico" });
+      console.error("Erro ao adicionar usuário ao histórico:", error);
+      return res.status(500).json({ 
+        error: "Erro ao adicionar usuário ao histórico",
+        details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
+      });
     }
   },
 
+  // Atualizar usuário no histórico
   async updateUserInHistory(req: Request, res: Response) {
-    const { historyId, userId } = req.params;
-    const { firstRound, secondRound, examScore } = req.body;
-
     try {
-        const history = await History.findOneAndUpdate(
-            {
-                _id: historyId,
-                "users.id": userId
-            },
-            {
-                $set: {
-                    "users.$.firstRound": firstRound,
-                    "users.$.secondRound": secondRound,
-                    "users.$.examScore": examScore
-                }
-            },
-            { new: true }
-        ).populate("users.id", "name profile");
+      if (!req.auth) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
 
-        if (!history) {
-            return res.status(404).json({ error: "Histórico ou usuário não encontrado" });
-        }
+      const History = getModelForTenant(req.auth.clientId, 'History');
+      const User = getModelForTenant(req.auth.clientId, 'User');
+      const { historyId, userId } = req.params;
+      const { firstRound, secondRound, examScore } = req.body;
 
-        return res.json(history);
+      const history = await History.findOneAndUpdate(
+        {
+          _id: historyId,
+          "users.id": userId
+        },
+        {
+          $set: {
+            "users.$.firstRound": firstRound,
+            "users.$.secondRound": secondRound,
+            ...(examScore !== undefined && { "users.$.examScore": examScore })
+          }
+        },
+        { new: true }
+      ).populate({
+        path: "users.id",
+        select: "name profile",
+        model: User
+      });
+
+      if (!history) {
+        return res.status(404).json({ error: "Histórico ou usuário não encontrado" });
+      }
+
+      return res.json(history);
     } catch (error) {
-        return res.status(500).json({ error: "Erro ao atualizar usuário no histórico" });
+      console.error("Erro ao atualizar usuário no histórico:", error);
+      return res.status(500).json({ 
+        error: "Erro ao atualizar usuário no histórico",
+        details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
+      });
     }
-}
+  }
 };

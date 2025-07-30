@@ -20,38 +20,37 @@ const QRCodeModel = mongoose.model('QRCode', QRCodeSchema);
 // Criar ou atualizar usuário
 export const createOrUpdateUserHandler = async (req: Request, res: Response) => {
   try {
-    if (!req.user) {
+    if (!req.auth) {
       return res.status(401).json({ message: "Usuário não autenticado" });
     }
-    const db = req.user.db;
-    const userData = req.body;
+    const { db, clientId} = req.auth;
+    let userData = req.body;
 
-    // Verifica se o client_id foi fornecido
-    if (!userData.client_id) {
-      return res.status(400).json({ message: "client_id é obrigatório" });
+    if (!userData.cpf) {
+      return res.status(400).json({ message: "CPF é obrigatório" });
     }
 
-    // Garanta que `cash` seja um número
-    if (userData.cash !== undefined && userData.cash !== null) {
-      userData.cash = parseFloat(userData.cash);
-      if (isNaN(userData.cash)) {
-        userData.cash = 0; // Valor padrão
-      }
-    }
+    userData = {
+      ...userData,
+      client_id: clientId // Sobrescreve qualquer client_id enviado
+    };
 
+    // Converte tipos se necessário
+    if (userData.cash !== undefined) {
+      userData.cash = Number(userData.cash) || 0;
+    }
+    
     const user = await createOrUpdateUser(userData, db);
 
-    if (!user) {
-      return res.status(404).json({ message: "Usuário não encontrado ou não pôde ser criado" });
-    }
+      const { password, ...safeUserData } = user;
 
-    // Converte o documento Mongoose para um objeto JavaScript
-    const userResponse = user.toObject();
-
-    res.status(200).json(userResponse);
+    res.status(200).json(safeUserData);
   } catch (error) {
     console.error("Erro ao criar/atualizar usuário:", error);
-    res.status(400).json({ message: (error as Error).message });
+    res.status(500).json({ 
+      message: "Erro ao processar usuário",
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    });
   }
 };
 
@@ -75,7 +74,11 @@ export const getQRcodeUser = async (req: Request, res: Response) => {
 
 export const getAllUsersHandler = async (req: Request, res: Response) => {
   try {
-    const users = await getAllUsers();
+    if (!req.auth) {
+      return res.status(401).json({ message: "Usuário não autenticado" });
+    }
+    const { clientId, db } = req.auth;
+    const users = await getAllUsers(db, clientId);
 
     res.status(200).json(users);
   } catch (error) {
@@ -90,9 +93,9 @@ export const getUserByIdHandler = async (req: Request, res: Response) => {
     if (!req.user) {
       return res.status(401).json({ message: "Usuário não autenticado pelo id" });
     }
-    const { clientId } = req.user;
+    const { clientId, db } = req.user;
 
-    const user = await getUserById(id, clientId);
+    const user = await getUserById(id, clientId, db);
 
     if (!user) {
       return res.status(404).json({ message: "Usuário não encontrado pelo id" });
@@ -108,42 +111,64 @@ export const getUserByCpfHandler = async (req: Request, res: Response) => {
   try {
     const { cpf } = req.params;
 
-    if (!req.user) {
+    if (!req.auth) {
       return res.status(401).json({ message: "Usuário não autenticado" });
     }
-    const { clientId } = req.user;
 
-    const user = await User.findOne({ cpf, client_id: clientId })
-      .populate({
-        path: 'histories',
-        select: 'name listDate isExam', // Campos do histórico que você quer trazer
-        populate: {
-          path: 'users.id',
-          select: 'name profile -_id' // Campos dos usuários que você quer trazer
-        }
-      })
-      .lean()
-      .exec();
+    const { clientId, db } = req.auth; // Assumindo que o middleware anexou o db correto
+
+    console.log(`Buscando usuário com CPF: ${cpf} no banco do cliente: ${clientId}`);
+
+    // 1. Busca o usuário base
+    const user = await db.collection('users').findOne({ 
+      cpf, 
+      client_id: clientId 
+    });
 
     if (!user) {
+      console.log('Usuário não encontrado com os critérios:', { cpf, clientId });
       return res.status(404).json({ message: "Usuário não encontrado" });
     }
 
+    // // 2. Busca os históricos separadamente (já que não temos populate direto com o driver nativo)
+    // const histories = await db.collection('histories').find({
+    //   'users.id': user._id
+    // }).project({
+    //   name: 1,
+    //   listDate: 1,
+    //   isExam: 1,
+    //   'users.$': 1
+    // }).toArray();
+
+    // // 3. Formata a resposta similar ao populate do Mongoose
+    // const response = {
+    //   ...user,
+    //   histories: histories.map((history: IHistory) => ({
+    //     ...history
+    //   }) 
+    // )
+    // };
+
     // Remove a senha do objeto de resposta
-    const { password, ...userWithoutPassword } = user as { password?: string; [key: string]: any };
+    const { password, ...userWithoutPassword } = user;
 
     res.status(200).json(userWithoutPassword);
   } catch (error) {
-    res.status(400).json({ message: (error as Error).message });
+    console.error('Erro ao buscar usuário por CPF:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
   }
 };
 
 // Adicionar penalidade a um usuário
 export const addPenaltyToUserHandler = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Usuário não autenticado pelo id" });
+    }
+    const { clientId, db } = req.user;
     const { cpf } = req.params;
     const penaltyData = req.body;
-    const user = await addPenaltyToUser(cpf, penaltyData);
+    const user = await addPenaltyToUser(cpf, penaltyData, clientId, db);
 
     res.status(200).json(user);
   } catch (error) {
