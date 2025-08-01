@@ -1,7 +1,6 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 import History from "./History";
 
-
 // Interface para as penalidades
 interface IPenalty {
   observation: string;
@@ -25,6 +24,9 @@ export interface IUser extends Document {
   client_id: string;
   password?: string;
   registrationDay: Date;
+  photoPath?: string;
+  photoUpdatedAt?: Date;
+  photoUploadedBy?: Types.ObjectId;
 }
 
 // Schema do usuário
@@ -36,7 +38,7 @@ const UserSchema: Schema = new Schema({
   gender: {
     type: String,
     enum: ["Masculino", "Feminino"],
-    required: true
+    required: true,
   },
   profile: {
     type: String,
@@ -65,12 +67,37 @@ const UserSchema: Schema = new Schema({
   client_id: { type: String, required: true },
   password: { type: String },
   registrationDay: { type: Date, default: Date.now },
+  photoPath: {
+    type: String,
+    default: null,
+  },
+  photoUpdatedAt: {
+    type: Date,
+    default: null,
+  },
+  photoUploadedBy: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    default: null,
+  },
 });
 
 UserSchema.index({ name: 1 }); // Índice para ordenação/filtro por nome
 UserSchema.index({ profile: 1 }); // Índice para filtro por perfil
 UserSchema.index({ client_id: 1 }); // Índice para consultas por client_id
-UserSchema.index({ 'penalties.startDate': 1 }); // Índice para penalidades
+UserSchema.index({ "penalties.startDate": 1 }); // Índice para penalidades
+UserSchema.index({ photoPath: 1 });
+
+UserSchema.methods.getPhotoUrl = function () {
+  if (this.photoPath) {
+    return `/user-photos/${this.photoPath}`;
+  }
+  return null;
+};
+
+UserSchema.methods.hasPhoto = function () {
+  return !!this.photoPath;
+};
 
 // Exportar o modelo
 export default mongoose.model<IUser>("User", UserSchema);

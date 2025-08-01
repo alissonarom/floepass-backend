@@ -1,18 +1,22 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import cors from "cors";
 import { MongoClient } from "mongodb";
-import dotenv from "dotenv";
-import router from './routes';
-
-dotenv.config();
+import path from "path";
+import router from "./routes";
+import photoRoutes from "./routes/photoRoutes";
 
 const app = express();
 
 // Middlewares
-app.use(cors({
-  origin: 'https://flowpass.netlify.app',
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: "https://flowpass.netlify.app",
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Configurações do MongoDB
@@ -21,8 +25,8 @@ const PORT = process.env.PORT ?? 5000;
 
 // Configuração dos bancos de clientes
 export const CUSTOMER_DBS: { [key: string]: string } = {
-  greyMist: 'greyMistDB',
-  amorChurch: 'test'
+  greyMist: "greyMistDB",
+  amorChurch: "test",
 };
 
 // Cria e exporta a instância do cliente MongoDB
@@ -36,7 +40,6 @@ const startServer = async () => {
   try {
     await mongoClient.connect();
     console.log("✅ Conectado ao MongoDB");
-    
     // Verifica conexão com cada banco de cliente
     for (const [customerName, dbName] of Object.entries(CUSTOMER_DBS)) {
       const db = mongoClient.db(dbName);
@@ -52,6 +55,7 @@ const startServer = async () => {
 startServer();
 
 // Rotas
-app.use('/api', router);
+app.use("/api", router);
+app.use("/api/photos", photoRoutes);
 
 export default app;

@@ -90,10 +90,10 @@ export const getUserByIdHandler = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    if (!req.user) {
+    if (!req.auth) {
       return res.status(401).json({ message: "Usuário não autenticado pelo id" });
     }
-    const { clientId, db } = req.user;
+    const { clientId, db } = req.auth;
 
     const user = await getUserById(id, clientId, db);
 
@@ -162,10 +162,10 @@ export const getUserByCpfHandler = async (req: Request, res: Response) => {
 // Adicionar penalidade a um usuário
 export const addPenaltyToUserHandler = async (req: Request, res: Response) => {
   try {
-    if (!req.user) {
+    if (!req.auth) {
       return res.status(401).json({ message: "Usuário não autenticado pelo id" });
     }
-    const { clientId, db } = req.user;
+    const { clientId, db } = req.auth;
     const { cpf } = req.params;
     const penaltyData = req.body;
     const user = await addPenaltyToUser(cpf, penaltyData, clientId, db);
