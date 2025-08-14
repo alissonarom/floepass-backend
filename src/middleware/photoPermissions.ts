@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { prisma } from "../utils/prisma";
 
 export const checkPhotoPermission = async (
   req: Request,
@@ -14,10 +15,10 @@ export const checkPhotoPermission = async (
   }
 
   try {
-    const { userId, db } = req.auth;
+    const { userId, clientId } = req.auth;
 
-    const user = await db.collection("users").findOne({
-      _id: userId,
+    const user = await prisma.user.findFirst({
+      where: { id: userId, client_id: clientId },
     });
 
     if (!user) {
@@ -35,8 +36,7 @@ export const checkPhotoPermission = async (
     } else {
       return res.status(403).json({
         success: false,
-        message:
-          "Permissão negada. Você não tem permissão para alterar fotos.",
+        message: "Permissão negada. Você não tem permissão para alterar fotos.",
         errorCode: "PERMISSION_DENIED",
         userProfile: user.profile,
       });

@@ -1,0 +1,90 @@
+// Prisma schema for PostgreSQL migration
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Note: We reuse Mongo ObjectId strings as primary keys where available.
+
+model User {
+  id               String    @id @db.VarChar(32)
+  name             String
+  cpf              String?
+  birthDate        DateTime?
+  phone            String?
+  gender           String
+  profile          String
+  anniversary      Boolean   @default(false)
+  currentLists     String?   @db.VarChar(32)
+  cash             Int       @default(0)
+  client_id        String
+  password         String?
+  registrationDay  DateTime  @default(now())
+  photoPath        String?
+  photoUpdatedAt   DateTime?
+  photoUploadedBy  String?   @db.VarChar(32)
+
+  // Embedded array in Mongo; store as JSON for compatibility
+  penalties        Json?
+
+  histories        History[]
+
+  @@unique([client_id, cpf])
+}
+
+model History {
+  id         String   @id @db.VarChar(32)
+  userId     String?  @db.VarChar(32)
+  client_id  String
+  type       String?
+  content    Json?
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id])
+}
+
+model List {
+  id          String   @id @db.VarChar(32)
+  name        String
+  client_id   String
+  eventId     String?  @db.VarChar(32)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+
+  // Raw Mongo document fallback
+  raw         Json?
+}
+
+model Event {
+  id          String   @id @db.VarChar(32)
+  name        String
+  date        DateTime?
+  client_id   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  raw         Json?
+}
+
+model QrCode {
+  id          String   @id @db.VarChar(32)
+  code        String
+  userId      String?  @db.VarChar(32)
+  client_id   String
+  createdAt   DateTime @default(now())
+  raw         Json?
+}
+
+// Optional: Pets for petShopMadre
+model Pet {
+  id          String   @id @db.VarChar(32)
+  name        String?
+  type        String?
+  ownerCpf    String?
+  client_id   String
+  raw         Json?
+}

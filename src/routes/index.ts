@@ -1,27 +1,27 @@
 import { Router } from "express";
 import {
-    createOrUpdateUserHandler,
-    getAllUsersHandler,
-    getUserByCpfHandler,
-    addPenaltyToUserHandler,
-    removeUserListHandler,
-    getQRcodeUser,
-    getUserByIdHandler,
-  } from "./../controllers/UserController";
+  createOrUpdateUserHandler,
+  getAllUsersHandler,
+  getUserByCpfHandler,
+  addPenaltyToUserHandler,
+  removeUserListHandler,
+  getQRcodeUser,
+  getUserByIdHandler,
+} from "./../controllers/UserController";
 import PromoterController from "../controllers/PromoterController";
 import ListController from "../controllers/ListController";
-import { authenticate } from '../utils';
+import { authenticate } from "../utils";
 import { loginHandler } from "../controllers/authController";
 import EventController from "../controllers/EventController";
 import HistoryController from "../controllers/HistoryController";
 
 const router = Router();
 
-router.get('/', (req, res) => {
-    res.send('Hello World');
+router.get("/", (req, res) => {
+  res.send("Hello World");
 });
 
-router.post('/login', loginHandler);
+router.post("/login", loginHandler);
 
 // Rotas de Usuários
 router.post("/users", authenticate, createOrUpdateUserHandler); // Criar ou atualizar usuário
@@ -36,9 +36,13 @@ router.post("/promoters", authenticate, PromoterController.create); // Criar pro
 
 // Rotas de Listas
 router.get("/lists", authenticate, ListController.index);
-router.post("/lists", authenticate, ListController.create); 
+router.post("/lists", authenticate, ListController.create);
 router.put("/lists/:id", authenticate, ListController.update);
-router.delete("/lists/:listId/users/:userId", authenticate, removeUserListHandler);
+router.delete(
+  "/lists/:listId/users/:userId",
+  authenticate,
+  removeUserListHandler
+);
 // Rotas de Eventos
 router.get("/events", authenticate, EventController.index); // Listar eventos
 router.post("/events", authenticate, EventController.create); // Criar evento
@@ -50,10 +54,14 @@ router.get("/events/:id", authenticate, EventController.show); // Buscar evento 
 router.get("/histories", authenticate, HistoryController.index); // Listar históricos
 router.post("/histories", authenticate, HistoryController.create); // Criar histórico
 router.get("/histories/:id", authenticate, HistoryController.show); // Buscar histórico por ID
-router.put("/histories/:id", authenticate, HistoryController.updateOrAddUser); // Editar histórico
+router.put("/histories/:id", authenticate, HistoryController.updateOrAddUser); // Editar histórico (não suportado)
 router.delete("/histories/:id", authenticate, HistoryController.delete); // Deletar histórico
-router.get("/histories/:id", authenticate, HistoryController.addUser); // Adicionar usuário ao histórico
-router.put("/histories/:historyId/users/:userId", authenticate, HistoryController.updateOrAddUser);
+router.post("/histories/:id/users", authenticate, HistoryController.addUser); // Adicionar usuário ao histórico (não suportado)
+router.put(
+  "/histories/:historyId/users/:userId",
+  authenticate,
+  HistoryController.updateOrAddUser
+); // Atualizar usuário no histórico (não suportado)
 
 // Rotas de Listas
 router.get("/generate-qrcode/:cpf", authenticate, getQRcodeUser); // Listar listas

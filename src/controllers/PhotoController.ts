@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { ObjectId, Db } from "mongodb";
+import { prisma } from "../utils/prisma";
 import {
   uploadToStorage,
   deleteFromStorage,
@@ -7,13 +7,12 @@ import {
 } from "../services/storageService";
 
 interface CustomAuth {
-  userId?: ObjectId;
-  db: Db;
+  userId?: string;
   clientId: string;
 }
 
 interface CustomCurrentUser {
-  _id: string;
+  id?: string;
   name?: string;
   profile: string;
 }
@@ -24,6 +23,7 @@ interface AuthenticatedRequest {
   file?: Express.Multer.File;
   body: any;
   params: any;
+  query?: any;
 }
 
 interface UserDocument {
@@ -61,8 +61,8 @@ interface PhotoGetResponse {
     hasPhoto: boolean;
     photoUrl: string | null;
     photoPath: string | null;
-    updatedAt?: Date;
-    uploadedBy?: string;
+    updatedAt?: Date | null;
+    uploadedBy?: string | null;
   };
   message?: string;
   errorCode?: string;
@@ -85,10 +85,10 @@ export const uploadPhoto = async (
       return;
     }
 
-    if (!userId || !cpf) {
+    if (!userId && !cpf) {
       res.status(400).json({
         success: false,
-        message: "userId e cpf são obrigatórios",
+        message: "Informe userId ou cpf",
         errorCode: "MISSING_DATA",
       });
       return;
@@ -103,12 +103,50 @@ export const uploadPhoto = async (
       return;
     }
 
-    const { db, clientId } = req.auth;
+    const { clientId } = req.auth;
 
-    const user = (await db.collection("users").findOne({
-      _id: new ObjectId(userId),
-      client_id: clientId,
-    })) as UserDocument | null;
+    // Resolve o usuário por id (preferencial) ou por cpf
+    const norm = (v: string) => (v || "").replace(/\D/g, "");
+    const providedCpf = cpf ? norm(String(cpf)) : undefined;
+
+    let user = null as Awaited<ReturnType<typeof prisma.user.findFirst>> | null;
+    if (userId) {
+      user = await prisma.user.findFirst({
+        where: { id: String(userId), client_id: clientId },
+      });
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: "Usuário não encontrado",
+          errorCode: "USER_NOT_FOUND",
+        });
+        return;
+      }
+      // Se CPF foi enviado, valide
+      if (providedCpf) {
+        const userCpf = user.cpf ? norm(String(user.cpf)) : undefined;
+        if (!userCpf || userCpf !== providedCpf) {
+          res.status(400).json({
+            success: false,
+            message: "CPF não confere com o usuário",
+            errorCode: "CPF_MISMATCH",
+          });
+          return;
+        }
+      }
+    } else if (providedCpf) {
+      user = await prisma.user.findFirst({
+        where: { cpf: providedCpf, client_id: clientId },
+      });
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: "Usuário não encontrado",
+          errorCode: "USER_NOT_FOUND",
+        });
+        return;
+      }
+    }
 
     if (!user) {
       res.status(404).json({
@@ -119,18 +157,11 @@ export const uploadPhoto = async (
       return;
     }
 
-    if (user.cpf !== cpf) {
-      res.status(400).json({
-        success: false,
-        message: "CPF não confere com o usuário",
-        errorCode: "CPF_MISMATCH",
-      });
-      return;
-    }
-
     if (user.photoPath) {
       try {
-        await deleteFromStorage(user.photoPath);
+        const parts = user.photoPath.split("/");
+        const prevKey = parts[parts.length - 1];
+        await deleteFromStorage(prevKey);
       } catch (error) {
         console.warn(
           "Não foi possível remover foto anterior do R2:",
@@ -146,17 +177,15 @@ export const uploadPhoto = async (
 
     const publicUrl = getPublicUrl(finalFilename);
 
-    await db.collection("users").findOneAndUpdate(
-      { _id: new ObjectId(userId), client_id: clientId },
-      {
-        $set: {
-          photoPath: publicUrl,
-          photoUpdatedAt: new Date(),
-          photoUploadedBy: currentUser?.name,
-          updatedAt: new Date(),
-        },
-      }
-    );
+    const targetUserId = userId ? String(userId) : String(user.id);
+    await prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        photoPath: publicUrl,
+        photoUpdatedAt: new Date(),
+        photoUploadedBy: currentUser?.name ?? null,
+      },
+    });
 
     res.json({
       success: true,
@@ -165,7 +194,7 @@ export const uploadPhoto = async (
         photoPath: finalFilename,
         photoUrl: publicUrl,
         uploadedAt: new Date(),
-        uploadedBy: currentUser?.name || currentUser?._id || "unknown",
+        uploadedBy: currentUser?.name || currentUser?.id || "unknown",
       },
     });
   } catch (error) {
@@ -183,14 +212,16 @@ export const deletePhoto = async (
   res: Response<PhotoDeleteResponse>
 ): Promise<void> => {
   try {
-    const { userId } = req.params;
+    const paramUserId =
+      req.params?.userId ?? req.body?.userId ?? req.query?.userId;
+    const cpf = req.params?.cpf ?? req.body?.cpf ?? req.query?.cpf;
     const currentUser = req.currentUser;
 
-    if (!userId) {
+    if (!paramUserId && !cpf) {
       res.status(400).json({
         success: false,
-        message: "userId é obrigatório",
-        errorCode: "MISSING_USER_ID",
+        message: "Informe userId ou cpf",
+        errorCode: "MISSING_IDENTIFIER",
       });
       return;
     }
@@ -204,12 +235,49 @@ export const deletePhoto = async (
       return;
     }
 
-    const { db, clientId } = req.auth;
+    const { clientId } = req.auth;
 
-    const user = (await db.collection("users").findOne({
-      _id: new ObjectId(userId),
-      client_id: clientId,
-    })) as UserDocument | null;
+    // Resolve o usuário por id (preferencial) ou cpf
+    const norm = (v: string) => (v || "").replace(/\D/g, "");
+    const providedCpf = cpf ? norm(String(cpf)) : undefined;
+
+    let user = null as Awaited<ReturnType<typeof prisma.user.findFirst>> | null;
+    if (paramUserId) {
+      user = await prisma.user.findFirst({
+        where: { id: String(paramUserId), client_id: clientId },
+      });
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: "Usuário não encontrado",
+          errorCode: "USER_NOT_FOUND",
+        });
+        return;
+      }
+      if (providedCpf) {
+        const userCpf = user.cpf ? norm(String(user.cpf)) : undefined;
+        if (!userCpf || userCpf !== providedCpf) {
+          res.status(400).json({
+            success: false,
+            message: "CPF não confere com o usuário",
+            errorCode: "CPF_MISMATCH",
+          });
+          return;
+        }
+      }
+    } else if (providedCpf) {
+      user = await prisma.user.findFirst({
+        where: { cpf: providedCpf, client_id: clientId },
+      });
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: "Usuário não encontrado",
+          errorCode: "USER_NOT_FOUND",
+        });
+        return;
+      }
+    }
 
     if (!user) {
       res.status(404).json({
@@ -238,24 +306,20 @@ export const deletePhoto = async (
       console.error("Erro ao remover arquivo do R2:", error);
     }
 
-    await db.collection("users").findOneAndUpdate(
-      { _id: new ObjectId(userId), client_id: clientId },
-      {
-        $unset: {
-          photoPath: 1,
-          photoUpdatedAt: 1,
-          photoUploadedBy: 1,
-        },
-        $set: {
-          updatedAt: new Date(),
-        },
-      }
-    );
+    const targetUserId = paramUserId ? String(paramUserId) : String(user.id);
+    await prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        photoPath: null,
+        photoUpdatedAt: null,
+        photoUploadedBy: null,
+      },
+    });
 
     res.json({
       success: true,
       message: "Foto removida com sucesso!",
-      deletedBy: currentUser?.name || currentUser?._id || "unknown",
+      deletedBy: currentUser?.name || currentUser?.id || "unknown",
     });
   } catch (error) {
     console.error("Erro ao remover foto:", error);
@@ -293,12 +357,11 @@ export const getUserPhoto = async (
       return;
     }
 
-    const { db, clientId } = req.auth;
+    const { clientId } = req.auth;
 
-    const user = (await db.collection("users").findOne({
-      _id: new ObjectId(userId),
-      client_id: clientId,
-    })) as UserDocument | null;
+    const user = await prisma.user.findFirst({
+      where: { id: String(userId), client_id: clientId },
+    });
 
     if (!user) {
       res.status(404).json({
@@ -322,8 +385,8 @@ export const getUserPhoto = async (
       return;
     }
 
-    const photoUrl = user.photoPath;
-    const urlParts = user.photoPath.split("/");
+    const photoUrl = user.photoPath!;
+    const urlParts = user.photoPath!.split("/");
     const objectKey = urlParts[urlParts.length - 1];
 
     const responseData = {

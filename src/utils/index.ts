@@ -1,37 +1,40 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { mongoClient, CUSTOMER_DBS } from '../app';
-import { ObjectId } from 'mongodb';
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import { prisma } from "./prisma";
 
-declare module 'express-serve-static-core' {
+declare module "express-serve-static-core" {
   interface Request {
     auth?: {
-      userId: ObjectId;
+      userId: string;
       clientId: string;
-      db: ReturnType<typeof mongoClient.db>;
     };
   }
 }
 
-export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers["authorization"] || req.headers["Authorization"];
+export const authenticate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const authHeader =
+    req.headers["authorization"] || req.headers["Authorization"];
   const token = authHeader?.toString().split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ 
-      code: 'MISSING_TOKEN',
-      message: "Token de autenticação não fornecido" 
+    return res.status(401).json({
+      code: "MISSING_TOKEN",
+      message: "Token de autenticação não fornecido",
     });
   }
 
   try {
     // Verifica se o JWT_SECRET está configurado
     if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET não configurado');
+      throw new Error("JWT_SECRET não configurado");
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET) as { 
-      userId: string; 
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as {
+      userId: string;
       clientId: string;
       exp: number;
     };
@@ -39,46 +42,51 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     // Verifica se o token expirou
     if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) {
       return res.status(401).json({
-        code: 'TOKEN_EXPIRED',
-        message: "Token expirado - faça login novamente"
+        code: "TOKEN_EXPIRED",
+        message: "Token expirado - faça login novamente",
       });
     }
 
-    if (!CUSTOMER_DBS[decoded.clientId]) {
-      return res.status(403).json({ 
-        code: 'INVALID_TENANT',
-        message: "Organização do usuário não existe" 
+    // Validate tenant existence by presence of any user with that client_id (cheap check)
+    const anyTenantUser = await prisma.user.findFirst({
+      where: { client_id: decoded.clientId },
+    });
+    if (!anyTenantUser) {
+      return res.status(403).json({
+        code: "INVALID_TENANT",
+        message: "Organização do usuário não existe",
       });
     }
 
     req.auth = {
-      userId: new ObjectId(decoded.userId),
+      userId: decoded.userId,
       clientId: decoded.clientId,
-      db: mongoClient.db(CUSTOMER_DBS[decoded.clientId])
     };
 
-    console.log(`Autenticação bem-sucedida para usuário ${decoded.userId} no tenant ${decoded.clientId}`);
+    console.log(
+      `Autenticação bem-sucedida para usuário ${decoded.userId} no tenant ${decoded.clientId}`
+    );
     next();
   } catch (err) {
-    console.error('Erro na autenticação:', err);
+    console.error("Erro na autenticação:", err);
 
     if (err instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({ 
-        code: 'TOKEN_EXPIRED',
-        message: "Sessão expirada - faça login novamente" 
+      return res.status(401).json({
+        code: "TOKEN_EXPIRED",
+        message: "Sessão expirada - faça login novamente",
       });
     }
 
     if (err instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({ 
-        code: 'INVALID_TOKEN',
-        message: "Token inválido" 
+      return res.status(401).json({
+        code: "INVALID_TOKEN",
+        message: "Token inválido",
       });
     }
 
-    return res.status(500).json({ 
-      code: 'AUTH_ERROR',
-      message: "Erro durante a autenticação" 
+    return res.status(500).json({
+      code: "AUTH_ERROR",
+      message: "Erro durante a autenticação",
     });
   }
 };

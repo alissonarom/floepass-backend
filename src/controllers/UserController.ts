@@ -5,25 +5,18 @@ import {
   addPenaltyToUser,
   getUserById,
 } from "../services/userService";
-import User from "../models/User";
-import List from "../models/List";
-import QRCode from 'qrcode';
-import mongoose from "mongoose";
-
-const QRCodeSchema = new mongoose.Schema({
-  cpf: { type: String, required: true, unique: true },
-  qrCodeLink: { type: String, required: true },
-});
-
-const QRCodeModel = mongoose.model('QRCode', QRCodeSchema);
+import QRCode from "qrcode";
 
 // Criar ou atualizar usuário
-export const createOrUpdateUserHandler = async (req: Request, res: Response) => {
+export const createOrUpdateUserHandler = async (
+  req: Request,
+  res: Response
+) => {
   try {
     if (!req.auth) {
       return res.status(401).json({ message: "Usuário não autenticado" });
     }
-    const { db, clientId} = req.auth;
+    const { clientId } = req.auth;
     let userData = req.body;
 
     if (!userData.cpf) {
@@ -32,44 +25,42 @@ export const createOrUpdateUserHandler = async (req: Request, res: Response) => 
 
     userData = {
       ...userData,
-      client_id: clientId // Sobrescreve qualquer client_id enviado
+      client_id: clientId, // Sobrescreve qualquer client_id enviado
     };
 
     // Converte tipos se necessário
     if (userData.cash !== undefined) {
       userData.cash = Number(userData.cash) || 0;
     }
-    
-    const user = await createOrUpdateUser(userData, db);
 
-      const { password, ...safeUserData } = user;
+    const user = await createOrUpdateUser(userData, clientId);
+
+    const { password, ...safeUserData } = user;
 
     res.status(200).json(safeUserData);
   } catch (error) {
     console.error("Erro ao criar/atualizar usuário:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Erro ao processar usuário",
-      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+      details:
+        process.env.NODE_ENV === "development"
+          ? error instanceof Error
+            ? error.message
+            : String(error)
+          : undefined,
     });
   }
 };
 
 export const getQRcodeUser = async (req: Request, res: Response) => {
   const { cpf } = req.params;
-    try {
-        const url = cpf;
-
-        const qrCodeDataURL = await QRCode.toDataURL(url);
-
-        await QRCodeModel.findOneAndUpdate(
-          { cpf },
-          { qrCodeLink: url },
-          { upsert: true, new: true }
-        );
-        res.json({ qrCode: qrCodeDataURL, qrCodeLink: url });
-    } catch (error) {
-        res.status(500).json({ error: 'Erro ao gerar o QR code' });
-    }
+  try {
+    const url = cpf;
+    const qrCodeDataURL = await QRCode.toDataURL(url);
+    res.json({ qrCode: qrCodeDataURL, qrCodeLink: url });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao gerar o QR code" });
+  }
 };
 
 export const getAllUsersHandler = async (req: Request, res: Response) => {
@@ -77,8 +68,8 @@ export const getAllUsersHandler = async (req: Request, res: Response) => {
     if (!req.auth) {
       return res.status(401).json({ message: "Usuário não autenticado" });
     }
-    const { clientId, db } = req.auth;
-    const users = await getAllUsers(db, clientId);
+    const { clientId } = req.auth;
+    const users = await getAllUsers(clientId);
 
     res.status(200).json(users);
   } catch (error) {
@@ -91,14 +82,18 @@ export const getUserByIdHandler = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     if (!req.auth) {
-      return res.status(401).json({ message: "Usuário não autenticado pelo id" });
+      return res
+        .status(401)
+        .json({ message: "Usuário não autenticado pelo id" });
     }
-    const { clientId, db } = req.auth;
+    const { clientId } = req.auth;
 
-    const user = await getUserById(id, clientId, db);
+    const user = await getUserById(id, clientId);
 
     if (!user) {
-      return res.status(404).json({ message: "Usuário não encontrado pelo id" });
+      return res
+        .status(404)
+        .json({ message: "Usuário não encontrado pelo id" });
     }
 
     res.status(200).json(user);
@@ -115,18 +110,21 @@ export const getUserByCpfHandler = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Usuário não autenticado" });
     }
 
-    const { clientId, db } = req.auth; // Assumindo que o middleware anexou o db correto
+    const { clientId } = req.auth; // tenant atual
 
-    console.log(`Buscando usuário com CPF: ${cpf} no banco do cliente: ${clientId}`);
+    console.log(
+      `Buscando usuário com CPF: ${cpf} no banco do cliente: ${clientId}`
+    );
 
     // 1. Busca o usuário base
-    const user = await db.collection('users').findOne({ 
-      cpf, 
-      client_id: clientId 
-    });
+    const { getUserByCpf } = await import("../services/userService");
+    const user = await getUserByCpf(cpf, clientId);
 
     if (!user) {
-      console.log('Usuário não encontrado com os critérios:', { cpf, clientId });
+      console.log("Usuário não encontrado com os critérios:", {
+        cpf,
+        clientId,
+      });
       return res.status(404).json({ message: "Usuário não encontrado" });
     }
 
@@ -145,7 +143,7 @@ export const getUserByCpfHandler = async (req: Request, res: Response) => {
     //   ...user,
     //   histories: histories.map((history: IHistory) => ({
     //     ...history
-    //   }) 
+    //   })
     // )
     // };
 
@@ -154,8 +152,8 @@ export const getUserByCpfHandler = async (req: Request, res: Response) => {
 
     res.status(200).json(userWithoutPassword);
   } catch (error) {
-    console.error('Erro ao buscar usuário por CPF:', error);
-    res.status(500).json({ message: 'Erro interno do servidor' });
+    console.error("Erro ao buscar usuário por CPF:", error);
+    res.status(500).json({ message: "Erro interno do servidor" });
   }
 };
 
@@ -163,12 +161,14 @@ export const getUserByCpfHandler = async (req: Request, res: Response) => {
 export const addPenaltyToUserHandler = async (req: Request, res: Response) => {
   try {
     if (!req.auth) {
-      return res.status(401).json({ message: "Usuário não autenticado pelo id" });
+      return res
+        .status(401)
+        .json({ message: "Usuário não autenticado pelo id" });
     }
-    const { clientId, db } = req.auth;
+    const { clientId } = req.auth;
     const { cpf } = req.params;
     const penaltyData = req.body;
-    const user = await addPenaltyToUser(cpf, penaltyData, clientId, db);
+    const user = await addPenaltyToUser(cpf, penaltyData, clientId);
 
     res.status(200).json(user);
   } catch (error) {
@@ -177,22 +177,10 @@ export const addPenaltyToUserHandler = async (req: Request, res: Response) => {
 };
 
 export const removeUserListHandler = async (req: Request, res: Response) => {
-  try {
-    const { listId, userId } = req.params;
-
-    // Remove o usuário da lista
-    const list = await List.findByIdAndUpdate(
-      listId,
-      { $pull: { users: userId } }, // Remove o userId do array de users
-      { new: true }
-    );
-
-    if (!list) {
-      return res.status(404).json({ message: "Lista não encontrada" });
-    }
-
-    res.status(200).json({ message: "Usuário removido da lista com sucesso" });
-  } catch (error) {
-    res.status(400).json({ message: (error as Error).message });
-  }
-}
+  return res
+    .status(501)
+    .json({
+      message:
+        "Remoção de usuário da lista não implementada no Postgres ainda.",
+    });
+};
